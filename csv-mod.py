@@ -48,12 +48,14 @@ df['gridnopv'] = df['grid'] + df['solar']
 
 df['dt'] = pd.to_datetime(df['local_15min'], format='%m/%d/%Y %H:%M')
 
-# # Plot!
-# ax = plt.gca()
-# df.plot(kind='line', x='dt', y='grid', ax=ax)
-# df.plot(kind='line', x='dt', y='solar', color='red', ax=ax)
-# df.plot(kind='line', x='dt', y='gridnopv', color='green', ax=ax)
-# plt.show()
+# Plot!
+fig = plt.figure(figsize=(8, 6), dpi=150)
+ax = plt.gca()
+# df.plot(kind='line', x='dt', y='grid', ax=ax, xlabel='Date', ylabel='Power, kW')
+# df.plot(kind='line', x='dt', y='solar', color='red', ax=ax, xlabel='Date', ylabel='Power, kW')
+df.plot(kind='line', x='dt', y='gridnopv', color='green', ax=ax, xlabel='Date', ylabel='Power, kW')
+fig.savefig('load_data.png')
+
 df = df.assign(tariff="")
 
 # Summer TOU pricing, weekdays:
@@ -92,8 +94,9 @@ df.loc[df['dt'].dt.month.isin(WINTER_MONTHS) & df['dt'].dt.hour.isin(SUPER_OFF_P
        & df['dt'].dt.weekday.isin([0, 6]), 'tariff'] = WIN_SUP_OFF_PEAK_TOU
 
 # # Plot tariff rate!
+# fig = plt.figure(figsize=(8, 6), dpi=150)
 # ax = plt.gca()
-# df.plot(kind='line', x='dt', y='tariff', ax=ax)
-# plt.show()
+# df.plot(kind='line', x='dt', y='tariff', color='black', ax=ax, xlabel='Date', ylabel='$/kWh')
+# fig.savefig('tariff_data.png')
 
 df.to_csv('load_tariff.csv')
