@@ -9,13 +9,12 @@ import matplotlib.dates as mdates
 
 # Import load and tariff rate data; convert to numpy array and get length
 df = pd.read_csv('load_tariff.csv')
-load = df.gridnopv[0:288].to_numpy()
-tariff = df.tariff[0:288].to_numpy()
-times = pd.to_datetime(df.local_15min[0:288])
-# load = df.gridnopv.to_numpy()
-# tariff = df.tariff.to_numpy()
-# times = pd.to_datetime(df.local_15min)
-
+# load = df.gridnopv[0:288].to_numpy()
+# tariff = df.tariff[0:288].to_numpy()
+# times = pd.to_datetime(df.local_15min[0:288])
+load = df.gridnopv.to_numpy()
+tariff = df.tariff.to_numpy()
+times = pd.to_datetime(df.local_15min)
 
 
 # Set environment variables:
