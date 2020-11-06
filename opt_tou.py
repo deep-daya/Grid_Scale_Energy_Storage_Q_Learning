@@ -19,7 +19,7 @@ times = pd.to_datetime(df.local_15min)
 
 # Set environment variables:
 LOAD_LEN = load.size  # length of optimization
-BAT_KW = 7  # Rated power of battery, in kW
+BAT_KW = 5  # Rated power of battery, in kW, continuous power for the Powerwall
 BAT_KWH = 14  # Rated energy of battery, in kWh.
 # Note Tesla Powerwall rates their energy at 13.5kWh, but at 100% DoD,
 # but I have also seen that it's actually 14kwh, 13.5kWh usable
@@ -80,55 +80,55 @@ print('saving to CSV')
 outputdf = pd.DataFrame(np.transpose([load, grd_pow.value, bat_pow, bat_eng.value, tariff, cumulative_cost]))
 outputdf.columns = ['load_power', 'grid_power', 'battery_power', 'battery_energy', 'tariff_rate', 'cumulative_cost']
 outputdf.set_index(times, inplace=True)
-outputdf.to_csv('opt_tou.csv')
+outputdf.to_csv('opt_tou_5kW_14kWh.csv')
 
 
-# # PLOTTING !
-#
-# fig, ax1 = plt.subplots(1, 1, figsize=(10,6))
-# fig.autofmt_xdate()
-# plt.gcf().autofmt_xdate()
-# xfmt = mdates.DateFormatter('%m-%d-%y %H:%M')
-# ax1.xaxis.set_major_formatter(xfmt)
-# ax1.set_xlabel('Date')
-# ax1.set_ylabel('Power, kW')
-# p1 = ax1.plot(times, bat_pow)
-# p2 = ax1.plot(times, load)
-# p3 = ax1.plot(times, grd_pow.value)
-#
-# color = 'tab:red'
-# ax2 = ax1.twinx()
-# ax2.set_ylabel('Energy Price, $/kWh', color=color)
-# p4 = ax2.plot(times, tariff, color=color)
-# ax2.tick_params(axis='y', labelcolor=color)
-# ax2.set_ylim([0,1.1*max(tariff)])
-# ax2.xaxis.set_major_formatter(xfmt)
-#
-# plt.legend((p1[0], p2[0], p3[0], p4[0]), ('Battery Power', 'Load Power', 'Grid Power', 'Tariff Rate'), loc='best')
-# fig.tight_layout()  # otherwise the right y-label is slightly clipped
-#
-# plt.savefig('opt_ex_tariff.png')
-#
-# fig, ax1 = plt.subplots(1, 1, figsize=(10,6))
-# fig.autofmt_xdate()
-# plt.gcf().autofmt_xdate()
-# xfmt = mdates.DateFormatter('%m-%d-%y %H:%M')
-# ax1.xaxis.set_major_formatter(xfmt)
-# ax1.set_xlabel('Date')
-# ax1.set_ylabel('Power, kW')
-# p1 = ax1.plot(times, bat_pow)
-# p2 = ax1.plot(times, load)
-# p3 = ax1.plot(times, grd_pow.value)
-#
-# color = 'tab:purple'
-# ax2 = ax1.twinx()
-# ax2.set_ylabel('Energy, kWh', color=color)
-# p4 = ax2.plot(times, bat_eng.value, color=color)
-# ax2.tick_params(axis='y', labelcolor=color)
-# ax2.set_ylim([0,BAT_KWH])
-# ax2.xaxis.set_major_formatter(xfmt)
-#
-# plt.legend((p1[0], p2[0], p3[0], p4[0]), ('Battery Power', 'Load Power', 'Grid Power', 'Battery Energy'), loc='best')
-# fig.tight_layout()  # otherwise the right y-label is slightly clipped
-#
-# plt.savefig('opt_ex_energy.png')
+# PLOTTING !
+
+fig, ax1 = plt.subplots(1, 1, figsize=(10,6))
+fig.autofmt_xdate()
+plt.gcf().autofmt_xdate()
+xfmt = mdates.DateFormatter('%m-%d-%y %H:%M')
+ax1.xaxis.set_major_formatter(xfmt)
+ax1.set_xlabel('Date')
+ax1.set_ylabel('Power, kW')
+p1 = ax1.plot(times, bat_pow)
+p2 = ax1.plot(times, load)
+p3 = ax1.plot(times, grd_pow.value)
+
+color = 'tab:red'
+ax2 = ax1.twinx()
+ax2.set_ylabel('Energy Price, $/kWh', color=color)
+p4 = ax2.plot(times, tariff, color=color)
+ax2.tick_params(axis='y', labelcolor=color)
+ax2.set_ylim([0,1.1*max(tariff)])
+ax2.xaxis.set_major_formatter(xfmt)
+
+plt.legend((p1[0], p2[0], p3[0], p4[0]), ('Battery Power', 'Load Power', 'Grid Power', 'Tariff Rate'), loc='best')
+fig.tight_layout()  # otherwise the right y-label is slightly clipped
+
+plt.savefig('opt_ex_tariff.png')
+
+fig, ax1 = plt.subplots(1, 1, figsize=(10,6))
+fig.autofmt_xdate()
+plt.gcf().autofmt_xdate()
+xfmt = mdates.DateFormatter('%m-%d-%y %H:%M')
+ax1.xaxis.set_major_formatter(xfmt)
+ax1.set_xlabel('Date')
+ax1.set_ylabel('Power, kW')
+p1 = ax1.plot(times, bat_pow)
+p2 = ax1.plot(times, load)
+p3 = ax1.plot(times, grd_pow.value)
+
+color = 'tab:purple'
+ax2 = ax1.twinx()
+ax2.set_ylabel('Energy, kWh', color=color)
+p4 = ax2.plot(times, bat_eng.value, color=color)
+ax2.tick_params(axis='y', labelcolor=color)
+ax2.set_ylim([0,BAT_KWH])
+ax2.xaxis.set_major_formatter(xfmt)
+
+plt.legend((p1[0], p2[0], p3[0], p4[0]), ('Battery Power', 'Load Power', 'Grid Power', 'Battery Energy'), loc='best')
+fig.tight_layout()  # otherwise the right y-label is slightly clipped
+
+plt.savefig('opt_ex_energy.png')
