@@ -280,6 +280,8 @@ class Residential:
     def calc_revenue(self):
         revenue = 0
         SOC_ind = 3
+        actions = []
+        rewards = []
         for ind, row in self.df.iterrows():
 
             LMP_ind = row["binned_LMP"]
@@ -348,8 +350,34 @@ class Residential:
             revenue += reward
             SOC_ind = newstate["SOC"]
 
-        print(revenue)
+            #record
+            actions.append(action)
+            rewards.append(reward)
 
+        print(revenue)
+        self.write(actions, rewards)
+
+    def write(self, actions, rewards):
+        # for action in self.Policy:
+        #     with open('out.policy', 'w') as f:
+        #         f.write(action)
+
+
+        action2string = {
+            0: 'LMP_buy',
+            1: 'LMP_sell',
+            2: 'wait',
+            3: 'TOU_buy',
+            4: 'TOU_discharge',
+        }
+
+        df = pd.DataFrame(list(zip(actions, rewards)), 
+               columns =['action_inds', 'rewards']) 
+        
+        df['actions'] = df['action_inds'].map(action2string)
+        df['cumulative_revenue'] = np.cumsum(df['rewards'])
+
+        df.to_csv('output.csv')
 
 def main():
     df = pd.read_csv(r"Discretized_State_Space.csv")
@@ -358,6 +386,8 @@ def main():
     a = Residential(df, state_dict)
     a.Q_learning()
     a.calc_revenue()
+
+
 
 
 if __name__ == "__main__":
