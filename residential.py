@@ -79,7 +79,9 @@ class Residential:
             # actions.append(self.LMP_sell)
             # actions.append(self.TOU_discharge)
             actions.append(1)
-            actions.append(4)
+            # Ensure that load never goes negative:
+            if state["Load"] >= self.BAT_KW:
+                actions.append(4)
 
         # actions.append(self.wait)
         actions.append(2)
@@ -327,12 +329,14 @@ class Residential:
             if action in [0, 3]:
                 newstate["SOC"] += 1
 
-            # if discharged TOU: decrease SOC, decrease load
+            # if discharged TOU: decrease SOC
             if action == 4:
                 newstate["SOC"] -= 1
-                load  = max(0, self.Load_bins[state["Load"]]-self.BAT_KW)
-            else:
-                load = self.Load_bins[state["Load"]]
+                # load  = max(0, self.Load_bins[state["Load"]]-self.BAT_KW)
+            # else:
+
+            # Do not alter load
+            load = self.Load_bins[state["Load"]]
 
             # if discharged LMP: decrease SOC
             if action == 1:
@@ -377,7 +381,7 @@ class Residential:
         df['actions'] = df['action_inds'].map(action2string)
         df['cumulative_revenue'] = np.cumsum(df['rewards'])
 
-        df.to_csv('output.csv')
+        df.to_csv('output2.csv')
 
 def main():
     df = pd.read_csv(r"Discretized_State_Space.csv")
