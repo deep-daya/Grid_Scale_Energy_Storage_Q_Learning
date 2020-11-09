@@ -37,3 +37,18 @@ plot.set_xlabel('Date')
 plot.set_ylabel('Cumulative cost, $')
 fig.savefig("cumulative_cost_comparison.png")
 
+actions = pd.concat([df_base.local_15min, df_rl.actions], axis=1)
+# actions.actions = pd.Categorical(actions.actions)
+plot2 = actions['actions'].value_counts().plot(kind='pie', legend=None)
+fig = plot2.get_figure()
+# plot2.set_xlabel('Action')
+plot2.set_ylabel('')
+fig.tight_layout()
+fig.savefig("action_pie.png")
+
+# action_types = ['LMP_buy', 'LMP_sell', 'wait', 'TOU_buy', 'TOU_discharge']
+# actions['act_codes'] = pd.Categorical(actions.actions, categories=action_types).codes
+# actions.set_index('local_15min', inplace=True)
+# actions.index = pd.to_datetime(actions.index)
+#
+# actions.act_codes.plot()
