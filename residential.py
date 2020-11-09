@@ -9,11 +9,10 @@ class Residential:
 
         self.df = df
 
-        self.gamma = .95
-        self.alpha = .2
+        self.gamma = 0.95
+        self.alpha = 0.2
         self.epsilon = 0.65
         self.LMP_Mavg = 0
-        
 
         self.LMP_bins = state_dict["LMP"]
         self.Load_bins = state_dict["Load"]
@@ -24,9 +23,7 @@ class Residential:
         self.BAT_KWH_MAX = 0.9 * 14  # Maximum SOE of battery, 90% of rated
         self.BAT_KW = 5
         # Data at 15 minute intervals, which is 0.25 hours. Need for conversion between kW <-> kWh
-        self.HR_FRAC = (
-            15 / 60
-        )  
+        self.HR_FRAC = 15 / 60
 
         # D means discharge the battery to help the utility, H means hold current battery energy
         # THIS ORDER MATTERS
@@ -53,7 +50,15 @@ class Residential:
                 len(self.TOU_bins),
                 len(self.Load_bins),
                 len(self.SOC_bins),
-                len(self.actions),
+                len(self.action_map),
+            ]
+        )
+        self.Policy = np.zeros(
+            [
+                len(self.LMP_bins),
+                len(self.TOU_bins),
+                len(self.Load_bins),
+                len(self.SOC_bins),
             ]
         )
 
@@ -61,18 +66,16 @@ class Residential:
         # [self.LMP_buy, self.LMP_sell, self.wait, self.TOU_buy, self.TOU_discharge]
 
         actions = []
-        EnergyDiff = self.BAT_KW * self.HR_FRAC
-        loss = -self.BAT_KW * self.HR_FRAC
 
         # can buy if it doesn't put you over the limit
-        if state["SOC"] + EnergyDiff < self.BAT_KWH_MAX:
+        if state["SOC"] + 1 < len(self.TOU_bins):
             # actions.append(self.LMP_buy)
             # actions.append(self.TOU_buy)
             actions.append(0)
             actions.append(3)
 
         # vice versa for sell
-        if state["SOC"] - EnergyDiff > self.BAT_KWH_MIN:
+        if state["SOC"] - 1 > 0:
             # actions.append(self.LMP_sell)
             # actions.append(self.TOU_discharge)
             actions.append(1)
@@ -86,7 +89,8 @@ class Residential:
     def LMP_buy(self, state):
         # buy 15 mins of power from LMP
         # kWh * $/kWh
-        LMP_cost = state["LMP"]
+        LMP_cost = self.LMP_bins[state["LMP"]]
+        
         energy_change = self.BAT_KW * self.HR_FRAC
 
         return (self.LMP_Mavg - LMP_cost) * energy_change
@@ -94,7 +98,7 @@ class Residential:
     def LMP_sell(self, state):
         # sell 15 mins of power to LMP
         # kWh * $/kWh
-        LMP_comp = state["LMP"]
+        LMP_comp = self.LMP_bins[state["LMP"]]
         energy_change = self.BAT_KW * self.HR_FRAC
 
         return (LMP_comp - self.LMP_Mavg) * energy_change
@@ -102,7 +106,7 @@ class Residential:
     def TOU_buy(self, state):
         # buy 15 mins of power from TOU
         # kWh * $/kWh
-        TOU_cost = -state["TOU"]
+        TOU_cost = -self.TOU_bins[state["TOU"]]
         energy_change = self.BAT_KW * self.HR_FRAC
 
         return TOU_cost * energy_change
@@ -110,7 +114,7 @@ class Residential:
     def TOU_discharge(self, state):
         # discharge 15 mins of power to TOU, offsetting load
         # kWh * $/kWh
-        TOU_comp = state["TOU"]
+        TOU_comp = self.TOU_bins[state["TOU"]]
         energy_change = self.BAT_KW * self.HR_FRAC
 
         return TOU_comp * energy_change
@@ -131,41 +135,58 @@ class Residential:
         """
 
         def policyFunction(state):
-            LMP_ind, TOU_ind, Load_ind, SOC_ind = state
+            LMP_ind, TOU_ind, Load_ind, SOC_ind = (
+                state["LMP"],
+                state["TOU"],
+                state["Load"],
+                state["SOC"],
+            )
 
             allowed = self.get_allowed_actions(state)
+
             num_allowed = len(allowed)
             Action_probabilities = [
-                float(epsilon / num_allowed) for i in range(num_actions) if i in allowed else 0.0
+                float(epsilon / num_allowed) if i in allowed else 0.0
+                for i in range(num_actions)
             ]
-            # print(Action_probabilities)
-            # Action_probabilities = np.ones(num_actions,
-            #         dtype = float) * epsilon / num_actions
+        
+            if all(Q[LMP_ind][TOU_ind][Load_ind][SOC_ind][:]):
+                best_action = np.argmax(Q[LMP_ind][TOU_ind][Load_ind][SOC_ind][:])
+            else:
+                best_action = np.random.choice(allowed)
 
-            best_action = np.argmax(Q[LMP_ind][TOU_ind][Load_ind][SOC_ind][:])
-            # print(best_action)
             Action_probabilities[best_action] += 1.0 - epsilon
             return Action_probabilities
 
         return policyFunction
 
-    def Q_learning(self, epsilon):
+    def Q_learning(self):
 
         # Create an epsilon greedy policy function
         # appropriately for environment action space
-        policy = self.createEpsilonGreedyPolicy(self.Q, self.epsilon, len(self.action_map))
+        policy = self.createEpsilonGreedyPolicy(
+            self.Q, self.epsilon, len(self.action_map)
+        )
 
-        #initialize
+        # initialize
         SOC_ind = 3
-
+        n = 0
         for ind, row in self.df.iterrows():
-            #update
-            self.LMP_Mavg 
 
             LMP_ind = row["binned_LMP"]
-            TOU_ind = row["TOU"]
+            TOU_ind = row["binned_TOU"]
             Load_ind = row["binned_Load"]
-            
+
+            state = {
+                "LMP": LMP_ind,
+                "TOU": TOU_ind,
+                "Load": Load_ind,
+                "SOC": SOC_ind,
+            }
+
+            # update
+            n += 1
+            self.LMP_Mavg = (self.LMP_Mavg + self.LMP_bins[LMP_ind]) / n
 
             # get probabilities of all actions from current state
             action_probabilities = policy(state)
@@ -177,29 +198,43 @@ class Residential:
             )
 
             # take action and get reward, transit to next state
-            # next_state, reward, done, _ = env.step(action)?
-
             next_state, reward, done = self.get_next(state, action)
-
-            # reward = action() + residual * state['TOU']
-            # if
+            LMP_ind_new, TOU_ind_new, Load_ind_new, SOC_ind_new = (
+                next_state["LMP"],
+                next_state["TOU"],
+                next_state["Load"],
+                next_state["SOC"],
+            )
 
             # TD Update
-            LMP_ind_new, TOU_ind_new, Load_ind_new, SOC_ind_new = next_state
-            best_next_action = np.argmax(self.Q[LMP_ind_new][TOU_ind_new][Load_ind_new][SOC_ind_new][:])
-            td_target = reward + self.gamma * Q[LMP_ind_new][TOU_ind_new][Load_ind_new][SOC_ind_new][best_next_action]
-            td_delta = td_target - Q[LMP_ind][TOU_ind][Load_ind][SOC_ind][action]
-            Q[LMP_ind][TOU_ind][Load_ind][SOC_ind][action] += self.alpha * td_delta
+
+            # print(LMP_ind_new, TOU_ind_new, Load_ind_new, SOC_ind_new )
+            allowed = self.get_allowed_actions(next_state)
+            if all(self.Q[LMP_ind_new][TOU_ind_new][Load_ind_new][SOC_ind_new][:]):
+                best_next_action = np.argmax(
+                    self.Q[LMP_ind_new][TOU_ind_new][Load_ind_new][SOC_ind_new][:]
+                )
+            else:
+                best_next_action = np.random.choice(allowed)
+            td_target = (
+                reward
+                + self.gamma
+                * self.Q[LMP_ind_new][TOU_ind_new][Load_ind_new][SOC_ind_new][
+                    best_next_action
+                ]
+            )
+            td_delta = td_target - self.Q[LMP_ind][TOU_ind][Load_ind][SOC_ind][action]
+            self.Q[LMP_ind][TOU_ind][Load_ind][SOC_ind][action] += self.alpha * td_delta
+
+            # update the policy with the action
+            self.Policy[LMP_ind][TOU_ind][Load_ind][SOC_ind] = action
 
             # done is True if episode terminated
             if done:
                 break
 
-            # state = next_state
+            state = next_state
             SOC_ind = SOC_ind_new
-
-        # print(self.Q)
-        # self.extract_policy()
 
     def get_next(self, state, action):
         """
@@ -208,7 +243,6 @@ class Residential:
         return: next state, reward, and boolean (done or not)
         """
         # self.action_map = {0: self.LMP_buy, 1: self.LMP_sell, 2: self.wait, 3: self.TOU_buy, 4: self.TOU_discharge}
-        # LMP_ind, TOU_ind, Load_ind, SOC_ind = state
         # no terminating states in this problem
         done = False
 
@@ -219,16 +253,18 @@ class Residential:
 
         # if charged: increase SOC, keep load the same
         if action in [0, 3]:
-            newstate["SOC_ind"] += 1
+            newstate["SOC"] += 1
 
         # if discharged TOU: decrease SOC, decrease load
         if action == 4:
-            newstate["SOC_ind"] -= 1
-            newstate["load"] -= self.BAT_KW
+            newstate["SOC"] -= 1
+            load  = max(0, self.Load_bins[state["Load"]]-self.BAT_KW)
+        else:
+            load = self.Load_bins[state["Load"]]
 
         # if discharged LMP: decrease SOC
         if action == 1:
-            newstate["SOC_ind"] -= 1
+            newstate["SOC"] -= 1
 
         # if wait do nothing
         if action == 2:
@@ -237,29 +273,91 @@ class Residential:
         # reward is based on action + residual of load
         # load to kWh * TOU rate + action component
         action_component = self.action_map[action](state)
-        reward = -newstate['load'] * self.HR_FRAC * state['TOU'] + action_component
-
+        reward = -load * self.HR_FRAC * self.TOU_bins[state["TOU"]] + action_component
 
         return newstate, reward, done
 
-    # def extract_policy(self):
-    #     for s in range(self.numStates):
-    #         if not np.any(self.Q[s]):
-    #             self.policy[s] = np.random.randint(1, self.numActions + 1)
-    #         else:
-    #             self.policy[s] = np.argmax(self.Q[s]) + 1
+    def calc_revenue(self):
+        revenue = 0
+        SOC_ind = 3
+        for ind, row in self.df.iterrows():
+
+            LMP_ind = row["binned_LMP"]
+            TOU_ind = row["binned_TOU"]
+            Load_ind = row["binned_Load"]
+
+            state = {
+                "LMP": LMP_ind,
+                "TOU": TOU_ind,
+                "Load": Load_ind,
+                "SOC": SOC_ind,
+            }
+            # print(state)
+            allowed = self.get_allowed_actions(state)
+            # print(allowed)
+            if int(self.Policy[LMP_ind][TOU_ind][Load_ind][SOC_ind]) in allowed:
+                action = int(self.Policy[LMP_ind][TOU_ind][Load_ind][SOC_ind])
+            else:
+                action = np.random.choice(allowed)
+
+            #make new state
+            newstate = state.copy()
+
+            # CALCULATE REWARD COMPONENTS
+            LMP_cost = self.LMP_bins[state["LMP"]]
+            TOU_cost = self.TOU_bins[state["TOU"]]
+            energy_change = self.BAT_KW * self.HR_FRAC
+            # self.action_map = {0: self.LMP_buy, 1: self.LMP_sell, 2: self.wait, 3: self.TOU_buy, 4: self.TOU_discharge}
+
+            if action == 0:
+                action_component = -LMP_cost * energy_change
+            elif action == 1:
+                action_component = LMP_cost * energy_change
+            elif action == 2:
+                action_component = 0
+            elif action == 3:
+                action_component = -TOU_cost * energy_change
+            elif action == 4:
+                action_component = TOU_cost * energy_change
+
+            # CHANGE STATE
+            # if charged: increase SOC, keep load the same
+            if action in [0, 3]:
+                newstate["SOC"] += 1
+
+            # if discharged TOU: decrease SOC, decrease load
+            if action == 4:
+                newstate["SOC"] -= 1
+                load  = max(0, self.Load_bins[state["Load"]]-self.BAT_KW)
+            else:
+                load = self.Load_bins[state["Load"]]
+
+            # if discharged LMP: decrease SOC
+            if action == 1:
+                newstate["SOC"] -= 1
+
+            # if wait do nothing
+            if action == 2:
+                pass
+
+            # reward is based on action + residual of load
+            # load to kWh * TOU rate + action component
+            reward = -load * self.HR_FRAC * self.TOU_bins[state["TOU"]] + action_component
+
+            # calc revenue and transition SOC
+            revenue += reward
+            SOC_ind = newstate["SOC"]
+
+        print(revenue)
 
 
 def main():
     df = pd.read_csv(r"Discretized_State_Space.csv")
     state_dict = pd.read_pickle(r"bins_Dict.pkl")
 
-    print(df.head())
-    # print(df2)
-    print(state_dict)
-    a = Residential(df, 0.95, state_dict)
-    # a = Residential()
-    # a.Q_learning()
+    a = Residential(df, state_dict)
+    a.Q_learning()
+    a.calc_revenue()
 
 
 if __name__ == "__main__":
